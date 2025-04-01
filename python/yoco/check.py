@@ -30,10 +30,10 @@ def check_ann(ann: str, num_classes: int) -> bool:
     if c < 0 or c >= num_classes:
         return False
 
-    if x < 0.0 or x > 1.0:
+    if x < 0.0 or x >= 1.0:
         return False
 
-    if y < 0.0 or y > 1.0:
+    if y < 0.0 or y >= 1.0:
         return False
 
     if w <= 0.0 or w > 1.0:

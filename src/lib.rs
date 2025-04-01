@@ -88,21 +88,23 @@ fn check_ann_file(path_str: &str, num_classes: i32) -> bool {
 }
 
 #[pyfunction]
-fn validate_list(path_str: &str, num_classes: i32) {
+fn validate_list(py: Python<'_>, path_str: &str, num_classes: i32) -> PyResult<()> {
     println!("Checking annotation file in rust...");
+
+    let pil = py.import("PIL.Image")?;
 
     let p = Path::new(path_str);
     if !p.exists() {
-        return;
+        return Ok(());
     }
 
     let content = match std::fs::read_to_string(p) {
         Ok(val) => val,
-        Err(_) => return,
+        Err(_) => return Ok(()),
     };
 
     if content.is_empty() {
-        return;
+        return Ok(());
     }
 
     let lines: Vec<&str> = content.split("\n").collect();
@@ -118,15 +120,28 @@ fn validate_list(path_str: &str, num_classes: i32) {
             .progress_chars("#>-"),
     );
     for line in lines {
-        let ann_file = line.trim().replace("/ims/", "/anns/");
-        if check_ann_file(&ann_file, num_classes) {
-            good_ims.push(line);
-        } else {
+        let img_path = line.trim();
+        let ann_file = img_path.replace("/ims/", "/anns/");
+        if !check_ann_file(&ann_file, num_classes) {
             bad_ims.push(line);
+        } else {
+            let img_valid = match pil.getattr("open")?.call1((img_path,)) {
+                Ok(_) => true,
+                Err(_) => false,
+            };
+
+            if img_valid {
+                good_ims.push(line);
+            } else {
+                bad_ims.push(line);
+            }
         }
+
         pb.inc(1);
     }
     pb.finish_with_message("Validation complete");
+
+    Ok(())
 }
 
 /// A Python module implemented in Rust.

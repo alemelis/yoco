@@ -1,3 +1,5 @@
+import sys
 from yoco import yoco
 
-yoco.validate_list("list.list", 32)
+list_file = sys.argv[1]
+yoco.validate_list(list_file, 32)

@@ -1,5 +1,5 @@
-from functools import partial
 from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
 from tqdm import tqdm
@@ -9,7 +9,9 @@ from .utils import get_max_processes, im2txt
 
 
 class Yoco:
-    def __init__(self, num_classes: int, ann_folder: str = "labels", num_processes=None):
+    def __init__(
+        self, num_classes: int, ann_folder: str = "labels", num_processes=None
+    ):
         self.num_classes = num_classes
         self.ann_folder = ann_folder
         self.num_processes = num_processes or get_max_processes()
@@ -25,37 +27,31 @@ class Yoco:
 
         return True
 
-    def validate_list(self, ims_list: Path):
-        with ims_list.open("r") as f:
-            ims = f.readlines()
-
-        bad_ims = []
-        good_ims = []
-        for im in tqdm(ims):
-            if not im:
-                continue
-            if self.validate_im(im):
-                good_ims.append(im)
-            else:
-                bad_ims.append(im)
-
-    def parallel_validate_list(self, ims_list: Path):
+    def validate_list(
+        self, ims_list: Path, parallel: bool = False, threading: bool = False
+    ):
         with ims_list.open("r") as f:
             ims = f.readlines()
 
         bad_ims = []
         good_ims = []
 
-        # Create a partial function with fixed arguments
-        process_func = partial(self.validate_im, num_classes=self.num_classes, ann_folder=self.ann_folder)
+        if parallel:
+            mpool = ThreadPool if threading else Pool
+            with mpool(processes=self.num_processes) as pool:
+                results = list(tqdm(pool.imap(self.validate_im, ims), total=len(ims)))
 
-        # Process images in parallel
-        with Pool(processes=self.num_processes) as pool:
-            results = list(tqdm(pool.imap(process_func, ims), total=len(ims)))
+            for i, res in enumerate(results):
+                if res:
+                    good_ims.append(ims[i])
+                else:
+                    bad_ims.append(ims[i])
 
-        # Collect results
-        for i, res in enumerate(results):
-            if res:
-                good_ims.append(ims[i])
-            else:
-                bad_ims.append(ims[i])
+        else:
+            for im in tqdm(ims):
+                if self.validate_im(im):
+                    good_ims.append(im)
+                else:
+                    bad_ims.append(im)
+
+        return good_ims, bad_ims

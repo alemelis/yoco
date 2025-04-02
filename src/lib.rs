@@ -1,3 +1,4 @@
+use image::ImageReader;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use pyo3::prelude::*;
@@ -88,11 +89,7 @@ fn check_ann_file(path_str: &str, num_classes: i32) -> bool {
 }
 
 #[pyfunction]
-fn validate_list(py: Python<'_>, path_str: &str, num_classes: i32) -> PyResult<()> {
-    println!("Checking annotation file in rust...");
-
-    let pil = py.import("PIL.Image")?;
-
+fn validate_list(path_str: &str, num_classes: i32) -> PyResult<()> {
     let p = Path::new(path_str);
     if !p.exists() {
         return Ok(());
@@ -110,6 +107,7 @@ fn validate_list(py: Python<'_>, path_str: &str, num_classes: i32) -> PyResult<(
     let lines: Vec<&str> = content.split("\n").collect();
     let mut good_ims: Vec<&str> = Vec::new();
     let mut bad_ims: Vec<&str> = Vec::new();
+    let mut bad_anns: Vec<&str> = Vec::new();
     let pb = ProgressBar::new(lines.len() as u64);
     pb.set_style(
         ProgressStyle::default_bar()
@@ -121,25 +119,26 @@ fn validate_list(py: Python<'_>, path_str: &str, num_classes: i32) -> PyResult<(
     );
     for line in lines {
         let img_path = line.trim();
-        let ann_file = img_path.replace("/ims/", "/anns/");
+        if img_path.is_empty() {
+            continue;
+        }
+        let ann_file = img_path.replace("/ims/", "/anns/").replace(".png", ".txt");
         if !check_ann_file(&ann_file, num_classes) {
-            bad_ims.push(line);
+            bad_anns.push(line);
         } else {
-            let img_valid = match pil.getattr("open")?.call1((img_path,)) {
-                Ok(_) => true,
-                Err(_) => false,
-            };
-
-            if img_valid {
-                good_ims.push(line);
-            } else {
-                bad_ims.push(line);
+            match ImageReader::open(img_path) {
+                Ok(_) => good_ims.push(line),
+                Err(_) => bad_ims.push(line),
             }
         }
 
         pb.inc(1);
     }
     pb.finish_with_message("Validation complete");
+
+    println!("{} good images", good_ims.len());
+    println!("{} bad images", bad_ims.len());
+    println!("{} bad annotation files", bad_anns.len());
 
     Ok(())
 }

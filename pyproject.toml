@@ -12,6 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+    "matplotlib>=3.7.5",
     "pillow>=10.4.0",
     "tqdm>=4.67.1",
 ]
@@ -25,5 +26,7 @@ features = ["pyo3/extension-module"]
 
 [dependency-groups]
 dev = [
+    "opencv-python>=4.11.0.86",
     "pytest>=8.3.5",
+    "seaborn>=0.13.2",
 ]

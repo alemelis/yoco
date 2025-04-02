@@ -1,4 +1,5 @@
 import sys
+
 from yoco import yoco
 
 list_file = sys.argv[1]
